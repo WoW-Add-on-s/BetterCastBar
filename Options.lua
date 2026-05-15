@@ -188,6 +188,7 @@ function BCB.RegisterOptions()
     last = MakeCheckRow(content, last, "Show remaining time", "showTime")
     last = MakeCheckRow(content, last, "Show spell icon",  "showIcon")
     last = MakeCheckRow(content, last, "Icon on left (otherwise on right)", "iconOnLeft")
+    last = MakeCheckRow(content, last, "Show queued spell icon (opposite side)", "showQueueIcon")
     last = MakeCheckRow(content, last, "Show safe zone (cancel window)", "showSafeZone")
     last = MakeSliderRow(content, last, "Safe zone size (multiplier)", "safeZoneScale", 0.25, 5.00, 0.05, "x")
 

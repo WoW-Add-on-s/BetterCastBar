@@ -24,6 +24,7 @@ BCB.defaults = {
     showIcon      = true,
     iconOnLeft    = true,
     showSafeZone  = true,
+    showQueueIcon = true,
 
     fontSize = 12,
     locked   = true,
@@ -82,6 +83,19 @@ local function ApplyAppearance()
         frame.icon:SetPoint("LEFT", frame, "RIGHT", 4, 0)
     end
 
+    local qSize = math.max(8, math.floor(db.height * 0.7))
+    frame.queueIcon:SetSize(qSize, qSize)
+    frame.queueIcon:ClearAllPoints()
+    if db.iconOnLeft then
+        frame.queueIcon:SetPoint("LEFT", frame, "RIGHT", 4, 0)
+    else
+        frame.queueIcon:SetPoint("RIGHT", frame, "LEFT", -4, 0)
+    end
+    if not db.showQueueIcon then
+        frame.queueIcon:Hide()
+        castData.queueGUID = nil
+    end
+
     frame.safeZone:SetColorTexture(unpack(db.safeZoneColor))
     frame.safeZone:SetShown(db.showSafeZone and castData.casting == true)
     if castData.casting then UpdateSafeZone() end
@@ -114,8 +128,10 @@ end
 local function StopCast()
     castData.casting = false
     castData.channel = false
+    castData.queueGUID = nil
     frame.bar:SetValue(0)
     frame.safeZone:Hide()
+    frame.queueIcon:Hide()
     frame:SetScript("OnUpdate", nil)
     frame:Hide()
 end
@@ -126,8 +142,10 @@ local function ShowFailed(failedColor)
     frame.bar:SetValue(1)
     frame.time:SetText("")
     frame.safeZone:Hide()
+    frame.queueIcon:Hide()
     castData.casting = false
     castData.channel = false
+    castData.queueGUID = nil
 
     C_Timer.After(0.6, function()
         if not castData.casting and not castData.channel then
@@ -158,6 +176,8 @@ local function StartCast(unit, isChannel)
     castData.endTime    = endTime
     castData.castID     = castID
     castData.notInterruptible = notInterruptible
+    castData.queueGUID  = nil
+    frame.queueIcon:Hide()
 
     frame.icon:SetTexture(texture)
     frame.text:SetText(text or name or "")
@@ -241,6 +261,12 @@ local function CreateCastBar()
     frame.icon:SetPoint("RIGHT", frame, "LEFT", -4, 0)
     frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
+    frame.queueIcon = frame:CreateTexture(nil, "OVERLAY")
+    frame.queueIcon:SetSize(math.floor(db.height * 0.7), math.floor(db.height * 0.7))
+    frame.queueIcon:SetPoint("LEFT", frame, "RIGHT", 4, 0)
+    frame.queueIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    frame.queueIcon:Hide()
+
     frame.lockText = frame.bar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     frame.lockText:SetPoint("CENTER")
     frame.lockText:SetText("BetterCastBar - drag to move")
@@ -263,6 +289,67 @@ local function CreateCastBar()
 end
 BCB.CreateCastBar = CreateCastBar
 BCB.GetFrame = function() return frame end
+
+local function ShowQueuedSpell(spellID)
+    if not spellID then return end
+    if not BetterCastBarDB.showQueueIcon then return end
+    if not castData.casting then return end
+    local icon
+    if C_Spell and C_Spell.GetSpellTexture then
+        icon = C_Spell.GetSpellTexture(spellID)
+    end
+    if not icon and GetSpellTexture then
+        icon = GetSpellTexture(spellID)
+    end
+    if not icon then return end
+    frame.queueIcon:SetTexture(icon)
+    frame.queueIcon:Show()
+end
+
+local hooksInstalled = false
+function BCB.HookCastFunctions()
+    if hooksInstalled then return end
+    hooksInstalled = true
+
+    if UseAction then
+        hooksecurefunc("UseAction", function(slot)
+            local actionType, id, subType = GetActionInfo(slot)
+            if actionType == "spell" then
+                ShowQueuedSpell(id)
+            elseif actionType == "macro" then
+                local spellID = GetMacroSpell and GetMacroSpell(id)
+                if spellID then ShowQueuedSpell(spellID) end
+            end
+        end)
+    end
+
+    if CastSpellByID then
+        hooksecurefunc("CastSpellByID", function(spellID)
+            ShowQueuedSpell(spellID)
+        end)
+    end
+
+    if CastSpellByName then
+        hooksecurefunc("CastSpellByName", function(spellName)
+            if not spellName then return end
+            local spellID
+            if C_Spell and C_Spell.GetSpellInfo then
+                local info = C_Spell.GetSpellInfo(spellName)
+                if info then spellID = info.spellID end
+            end
+            if not spellID and GetSpellInfo then
+                spellID = select(7, GetSpellInfo(spellName))
+            end
+            if spellID then ShowQueuedSpell(spellID) end
+        end)
+    end
+
+    if C_Spell and C_Spell.CastSpell then
+        hooksecurefunc(C_Spell, "CastSpell", function(spellID)
+            ShowQueuedSpell(spellID)
+        end)
+    end
+end
 
 function BCB:SetUnlocked(unlocked)
     BetterCastBarDB.locked = not unlocked
@@ -305,6 +392,8 @@ events:SetScript("OnEvent", function(self, event, arg1, ...)
         self:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTIBLE", "player")
         self:RegisterUnitEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", "player")
 
+        BCB.HookCastFunctions()
+
         if BCB.RegisterOptions then BCB.RegisterOptions() end
 
     elseif event == "UNIT_SPELLCAST_START" then
@@ -338,10 +427,18 @@ events:SetScript("OnEvent", function(self, event, arg1, ...)
         StopCast()
 
     elseif event == "UNIT_SPELLCAST_FAILED" then
-        if castData.casting then ShowFailed(BetterCastBarDB.failedColor) end
+        if castData.casting
+           and not UnitCastingInfo("player")
+           and not UnitChannelInfo("player") then
+            ShowFailed(BetterCastBarDB.failedColor)
+        end
 
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
-        if castData.casting then ShowFailed(BetterCastBarDB.failedColor) end
+        if castData.casting
+           and not UnitCastingInfo("player")
+           and not UnitChannelInfo("player") then
+            ShowFailed(BetterCastBarDB.failedColor)
+        end
 
     elseif event == "UNIT_SPELLCAST_INTERRUPTIBLE" then
         if castData.casting and not castData.channel then
