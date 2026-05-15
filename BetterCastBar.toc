@@ -1,0 +1,10 @@
+## Interface: 120001
+## Title: BetterCastBar
+## Notes: Customizable cast bar (colors, size, icon, safe zone)
+## Author: Toyger
+## Version: 1.0.0
+## SavedVariables: BetterCastBarDB
+## IconTexture: Interface\Icons\Spell_Holy_MagicalSentry
+
+Core.lua
+Options.lua
