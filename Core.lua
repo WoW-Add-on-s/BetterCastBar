@@ -360,11 +360,19 @@ function BCB:SetUnlocked(unlocked)
         frame.bar:SetStatusBarColor(unpack(BetterCastBarDB.barColor))
         frame.text:SetText("BetterCastBar")
         frame.time:SetText("")
+        frame.icon:SetTexture("Interface\\Icons\\Spell_Holy_MagicalSentry")
+        if BetterCastBarDB.showQueueIcon then
+            frame.queueIcon:SetTexture("Interface\\Icons\\Spell_Nature_Lightning")
+            frame.queueIcon:Show()
+        end
         frame:Show()
         frame.lockText:Show()
     else
         frame.lockText:Hide()
-        if not castData.casting then frame:Hide() end
+        if not castData.casting then
+            frame.queueIcon:Hide()
+            frame:Hide()
+        end
     end
 end
 
@@ -469,6 +477,8 @@ SlashCmdList["BETTERCASTBAR"] = function(msg)
         CopyDefaults(BCB.defaults, BetterCastBarDB)
         ApplyAppearance()
         print("|cff7ec0eeBetterCastBar|r: settings reset to defaults.")
+    elseif msg == "recap" then
+        if BCB.Recap then BCB.Recap:Toggle() end
     elseif msg == "test" then
         castData.casting   = true
         castData.channel   = false
@@ -492,6 +502,7 @@ SlashCmdList["BETTERCASTBAR"] = function(msg)
         print("  /bcb unlock - unlock the bar to move it")
         print("  /bcb lock   - lock the bar")
         print("  /bcb test   - run a test cast (3s)")
+        print("  /bcb recap  - open the dungeon recap window")
         print("  /bcb reset  - reset settings to defaults")
         print("  Options panel: ESC > Options > AddOns > BetterCastBar")
     end

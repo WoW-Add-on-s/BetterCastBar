@@ -3,8 +3,10 @@
 ## Notes: Customizable cast bar (colors, size, icon, safe zone)
 ## Author: Toyger
 ## Version: 1.0.0
-## SavedVariables: BetterCastBarDB
+## SavedVariables: BetterCastBarDB, BetterCastBarTrackerDB
 ## IconTexture: Interface\Icons\Spell_Holy_MagicalSentry
 
 Core.lua
 Options.lua
+DungeonTracker.lua
+Recap.lua
